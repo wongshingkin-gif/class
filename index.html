@@ -16,7 +16,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
   
   <style>
-    /* CSS 樣式表完全保留您的原始設計 */
+    /* CSS 樣式表完全保留 */
     :root { --primary: #4a90e2; --bg: #f4f7f6; --card-bg: #fff; --green: #2ecc71; --red: #e74c3c; --text: #333; --gray: #95a5a6; }
     body { font-family: 'Noto Sans TC', sans-serif; background: var(--bg); margin: 0; padding: 0; color: var(--text); -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; padding-bottom: 40px; }
     .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: rgba(244, 247, 246, 0.98); position: sticky; top: 0; z-index: 50; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
@@ -123,24 +123,21 @@
 
 <script>
   // ==========================================
-  // ⚠️ 請在此填寫您的 Google Apps Script 部署網址
+  // ⚠️ 請填寫您的 Google Apps Script 部署網址
   // ==========================================
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbws7HPZN-CWhcXrFyV5Cn35PAyonqDK9mVVxI9w8UaTc4NsO2CGm5wIq5cmRJio2zSwcg/exec"; 
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbycf8wtkcytdpNkQ83SrETv2PVWEeOCp8pRTJWmQURQ2xP2HOZGfMH7lU9XvcA8X-ZKVA/exec"; 
 
   let rawData = {}; 
   let selectedStudent = null;
 
-  // 註冊 Service Worker (PWA)
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js')
       .then(() => console.log("Service Worker 註冊成功"))
       .catch(err => console.log("Service Worker 註冊失敗", err));
   }
 
-  // 初始化：透過 Fetch API 跟後端要資料
   window.onload = async function() { 
     try {
-      // 加上 ?action=getInitData 讓後端知道我們要幹嘛
       const response = await fetch(`${GAS_URL}?action=getInitData`);
       const data = await response.json();
       initApp(data);
@@ -174,7 +171,6 @@
     document.getElementById('loading').style.display = 'none';
   }
 
-  // 渲染學生名單 (與原本相同)
   function renderStudents() {
     const cls = document.getElementById('classSelect').value;
     const grid = document.getElementById('studentGrid');
@@ -186,13 +182,13 @@
       let card = document.createElement('div');
       let scoreClass = s.totalScore < 0 ? 'negative' : 'positive';
       card.className = `card ${scoreClass}`;
-      card.innerHTML = `<div class="stu-id">${s.id}</div><div class="stu-name">${s.name}</div><div class="stu-score ${s.totalScore<0?'neg':''}" id="score-${s.id}">${s.totalScore}</div>`;
+      // ⚠️ 修正：ID 改為 score-班級-學號，避免跨班級撞名
+      card.innerHTML = `<div class="stu-id">${s.id}</div><div class="stu-name">${s.name}</div><div class="stu-score ${s.totalScore<0?'neg':''}" id="score-${s.class}-${s.id}">${s.totalScore}</div>`;
       card.onclick = () => openModal(s);
       grid.appendChild(card);
     });
   }
 
-  // 開啟/關閉/切換 Modal (與原本相同)
   function openModal(student) {
     selectedStudent = student;
     document.getElementById('modalStuName').innerText = student.name;
@@ -209,7 +205,7 @@
   
   function updateModalHeader() {
     if(!selectedStudent) return;
-    document.getElementById('modalStuId').innerText = `學號: ${selectedStudent.id} | 分數: ${selectedStudent.totalScore}`;
+    document.getElementById('modalStuId').innerText = `班級: ${selectedStudent.class} | 學號: ${selectedStudent.id} | 分數: ${selectedStudent.totalScore}`;
   }
 
   function switchModalTab(tabName) {
@@ -220,7 +216,6 @@
     document.getElementById(`tab-${tabName}`).classList.add('active');
   }
 
-  // --- 評分功能 ---
   function submitScore(action) {
     if (!selectedStudent) return;
     
@@ -251,14 +246,12 @@
       score: action.score
     };
 
-    // 替換為 Fetch API (傳送 POST 給後端)
     fetch(GAS_URL, {
       method: "POST",
       body: JSON.stringify({ action: "submitScore", data: record })
     }).catch(e => console.error("評分上傳失敗:", e));
   }
 
-  // --- 刪除功能 ---
   function deleteHistory(index) {
     if(!selectedStudent) return;
     let item = selectedStudent.history[index];
@@ -270,19 +263,18 @@
     updateUI(selectedStudent);
 
     const deleteData = {
+      class: selectedStudent.class, // ⚠️ 修正：加入班級確保刪除正確
       studentId: String(selectedStudent.id),
       timeId: item.tid,
       score: item.s
     };
 
-    // 替換為 Fetch API (傳送 POST 給後端)
     fetch(GAS_URL, {
       method: "POST",
       body: JSON.stringify({ action: "deleteScore", data: deleteData })
     }).catch(e => console.error("刪除請求失敗:", e));
   }
 
-  // 渲染歷史紀錄 (與原本相同)
   function renderHistory(student) {
     const list = document.getElementById('historyList');
     list.innerHTML = '';
@@ -310,7 +302,8 @@
   }
 
   function updateUI(stu) {
-    const scoreEl = document.getElementById(`score-${stu.id}`);
+    // ⚠️ 修正：使用班級+學號來尋找 DOM 元素
+    const scoreEl = document.getElementById(`score-${stu.class}-${stu.id}`);
     if(scoreEl) {
       scoreEl.innerText = stu.totalScore;
       if(stu.totalScore < 0) scoreEl.classList.add('neg'); else scoreEl.classList.remove('neg');
@@ -337,5 +330,3 @@
 </script>
 </body>
 </html>
-
-
